@@ -1,3 +1,4 @@
+import pandas as pd
 import requests
 import os
 class DataPreparation:
@@ -15,3 +16,14 @@ class DataPreparation:
                 file.write(response.content)   
         else:
             print(f"Cannot download file. Status: {response.status_code}")
+
+    def read_xlsx_to_dataframe(self, file_path):
+        try:
+            df = pd.read_excel(file_path, usecols=[4,5])
+            df.columns = ["date","USD"]
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+            return df
+        except Exception as e:
+            print(f"error: {e}")
+
