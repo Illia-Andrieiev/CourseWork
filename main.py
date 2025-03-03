@@ -17,7 +17,7 @@ dp = DataPreparation()
 
 # read xlsx as pandas dataframe
 df = dp.read_xlsx_to_dataframe(save_path)
-
+debt = dp.read_csv_to_dataframe("data/HstDebt_17900101_20240930.csv")
 # Grouping data by month and calculating the average
 monthly_avg = df.resample('ME').mean()
 monthly_avg.reset_index(inplace=True)
@@ -33,6 +33,11 @@ yearly_avg.reset_index(inplace=True)
 #print(yearly_avg)
 
 dv = DataVisualisation()
+debt.reset_index(inplace=True)
+debt_plot = dv.plot_dataframe(debt,'date', 'USD')
+debt_plot.show()
+w = input()
+
 y_year = np.array(yearly_avg['USD'])
 y_month = np.array(monthly_avg['USD'])
 x_month = np.arange(1, len(y_month)+1)
@@ -85,7 +90,7 @@ monthly_avg['exponent'] = exponent_y_month
 yearly_avg_extended['polynomial'] = polynomial_y_year
 monthly_avg['polynomial'] = polynomial_y_month
 
-y_plt = dv.plot_dataframe(yearly_avg_extended, 'date', 'USD', else_y_cols=['linear','exponent','polynomial'], title='yearly_avg', x_label='date', y_label='USD')
-m_plt = dv.plot_dataframe(monthly_avg, 'date', 'USD', else_y_cols=['linear','exponent','polynomial'], title='monthly_avg', x_label='date', y_label='USD')
+y_plt = dv.plot_dataframe(yearly_avg_extended, 'date', 'USD', else_y_cols=['linear','exponent','polynomial'], title='yearly_avg', x_label='date', y_label='USD', is_use_locator=True)
+m_plt = dv.plot_dataframe(monthly_avg, 'date', 'USD', else_y_cols=['linear','exponent','polynomial'], title='monthly_avg', x_label='date', y_label='USD', is_use_locator=True)
 y_plt.show()
 m_plt.show()

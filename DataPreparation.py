@@ -27,3 +27,14 @@ class DataPreparation:
         except Exception as e:
             print(f"error: {e}")
 
+            
+    def read_csv_to_dataframe(self, file_path):
+        try:
+            df = pd.read_csv(file_path)
+            df.columns = ["date","USD"]
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+            return df
+        except Exception as e:
+            print(f"error: {e}")
+

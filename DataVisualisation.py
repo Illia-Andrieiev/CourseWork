@@ -3,7 +3,7 @@ import matplotlib.ticker as ticker
 import matplotlib.dates as mdates
 
 class DataVisualisation:
-    def plot_dataframe(self, df, x_col, main_y_col, else_y_cols=None, title='plot', x_label='X', y_label='Y', xaxis_major_locator=365*5, yaxis_major_locator=250):
+    def plot_dataframe(self, df, x_col, main_y_col, else_y_cols=None, title='plot', x_label='X', y_label='Y', is_use_locator = False, xaxis_major_locator=365*5, yaxis_major_locator=250):
         '''
         Function for plotting using Matplotlib.
 
@@ -32,11 +32,12 @@ class DataVisualisation:
         plt.grid(True, linestyle='-', linewidth=0.5)
 
         # Setting the Grid Density
-        plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(xaxis_major_locator))  # X-axis step
-        plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(yaxis_major_locator))  # Y-axis step
+        if is_use_locator:
+            plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(xaxis_major_locator))  # X-axis step
+            plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(yaxis_major_locator))  # Y-axis step
 
         # Setting date format on x-axis
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))  # Display only year
+        #plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))  # Display only year
         
         # Add legend
         plt.legend()
