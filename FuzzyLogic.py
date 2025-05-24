@@ -1,6 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
 import math
+import itertools
 
 class FuzzyTerm:
     """
@@ -155,14 +156,16 @@ class FuzzyRule:
             variables_dict (dict): {var_name: FuzzyLinguisticVariable}
 
         Returns:
-            float: Minimum membership (truth degree) across all conditions.
+            float: average membership (truth degree) across all conditions.
         """
         degrees = []
         for var_name, term_name in self._conditions:
             var = variables_dict[var_name]
             x = inputs[var_name]
             degrees.append(var.get_membership(term_name, x))
-        return min(degrees)
+            # return np.prod(degrees)       
+            return sum(degrees) / len(degrees)  # soft norm
+
 
     def evaluate_output(self, inputs):
         """
@@ -215,6 +218,109 @@ class FuzzyRuleBase:
 
         return sum(weighted_outputs) / total_weight
 
+
+
+class HistoricalFuzzyRule:
+    """
+    A fuzzy rule with learnable linear consequence: Y = a1*X1 + a2*X2 + ... + an*Xn + b
+    Conditions: list of (var_name, term_name) for fuzzy matching.
+    """
+
+    def __init__(self, conditions):
+        self._conditions = conditions
+        self._coefficients = None  # To be learned: [a1, a2, ..., an, b]
+
+    def evaluate_truth(self, inputs, variables_dict):
+        degrees = []
+        for var_name, term_name in self._conditions:
+            var = variables_dict[var_name]
+            x = inputs[var_name]
+            degrees.append(var.get_membership(term_name, x))
+            # return np.prod(degrees)       
+        return sum(degrees) / len(degrees)  # soft norm
+
+    def evaluate_output(self, inputs):
+        """
+        Evaluates linear model: dot([x1, x2, ..., xn, 1], coeffs)
+        """
+        x_vec = np.array([inputs[name] for name, _ in self._conditions] + [1.0])
+        if self._coefficients is None:
+            return 0.0  # fallback if not trained
+        return float(np.dot(x_vec, self._coefficients))
+
+    def fit(self, input_data_list, targets, variables_dict):
+        """
+        Fits the rule to historical data using weighted least squares.
+        
+        input_data_list: list of dicts, each {var_name: value}
+        targets: list of corresponding D values
+        """
+        X, y, weights = [], [], []
+
+        for inputs, target in zip(input_data_list, targets):
+            g = self.evaluate_truth(inputs, variables_dict)
+            if g > 0:
+                a = 0.7
+                g = g ** a  # ← make softer
+                x_row = [inputs[name] for name, _ in self._conditions] + [1.0]
+                X.append(x_row)
+                y.append(target)
+                weights.append(g)
+
+
+        if len(X) == 0:
+            self._coefficients = np.zeros(len(self._conditions) + 1)
+            return
+
+        X = np.array(X)
+        y = np.array(y)
+        W = np.diag(weights)
+        
+        try:
+            self._coefficients = np.linalg.inv(X.T @ W @ X) @ X.T @ W @ y
+        except np.linalg.LinAlgError:
+            self._coefficients = np.zeros(len(self._conditions) + 1)  # fallback
+
+
+class HistoricalFuzzyRuleBase:
+    """
+    A base for fuzzy rules with training ability on historical data.
+    """
+
+    def __init__(self, variables_dict):
+        self._rules = []
+        self._variables = variables_dict
+
+    def add_rule(self, rule: HistoricalFuzzyRule):
+        self._rules.append(rule)
+
+    def train(self, input_data_list, targets):
+        """
+        Trains all rules on provided historical data.
+        """
+        for rule in self._rules:
+            rule.fit(input_data_list, targets, self._variables)
+            print(f"Rule {rule._conditions} → coeffs: {rule._coefficients}")
+
+
+    def predict(self, input_dict):
+        """
+        Performs fuzzy inference using trained rule consequences.
+        """
+        weighted_outputs = []
+        weights = []
+
+        for rule in self._rules:
+            truth = rule.evaluate_truth(input_dict, self._variables)
+            output = rule.evaluate_output(input_dict)
+            weights.append(truth)
+            weighted_outputs.append(truth * output)
+
+        total_weight = sum(weights)
+        if total_weight == 0:
+            return 0.0
+
+        return sum(weighted_outputs) / total_weight
 
 
 """
@@ -447,6 +553,42 @@ def defuzzify(x_values, membership_values, method="centroid"):
     else:
         raise ValueError("Invalid defuzzification method. Choose from: 'centroid', 'mom', 'max', 'weighted_avg'.")
 
+
+
+def generate_all_rules(variables):
+    """
+    Generates all possible combinations of terms given the input linguistic variables
+    and returns a list of HistoricalFuzzyRule rules.
+
+    Args:
+        variables (list): list of FuzzyLinguisticVariable objects.
+
+    Returns:
+        list of HistoricalFuzzyRule: all possible combinations.
+
+    """
+    # Получаем все имена термов для каждой переменной
+    term_lists = []
+    var_names = []
+    for var in variables:
+        var_names.append(var.get_name())
+        term_lists.append(var.get_terms())  # список названий термов
+
+    # Генерируем декартово произведение всех термов
+    all_combinations = itertools.product(*term_lists)
+
+    # Формируем правила
+    rules = []
+    for term_combo in all_combinations:
+        conditions = list(zip(var_names, term_combo))
+        rules.append(HistoricalFuzzyRule(conditions))
+
+    return rules
+
+
+
+
+
 # Створення змінної
 temperature = FuzzyLinguisticVariable("Температура", (0, 100))
 
@@ -464,7 +606,7 @@ x = 45
 #print(f"Належність до 'середня' при {x}: {temperature.get_membership('середня', x)}")
 print(f"Належність до 'низька' при {x}: {temperature.get_membership('низька', x)}")
 #print(f"Належність до 'висока' при {x}: {temperature.get_membership('висока', x)}")
-plot_linguistic_variable(temperature,3)
+#plot_linguistic_variable(temperature,3)
 
 
 x_vals = np.array([0, 10, 20, 30, 40, 50])
@@ -488,31 +630,51 @@ volume.add_term(FuzzyTerm("High", triangle_function(50, 100, 100)))
 rsi = FuzzyLinguisticVariable("RSI", (0, 100))
 rsi.add_term(FuzzyTerm("Low", triangle_function(0, 0, 50)))
 rsi.add_term(FuzzyTerm("High", triangle_function(50, 100, 100)))
+# Исторические входы и значения D
+history_inputs = [
+    {"Температура": t, "Volume": v, "RSI": r}
+    for t in [20, 40, 60, 80]
+    for v in [10, 50, 90]
+    for r in [10, 50, 90]
+]
 
-variables = {
-    "Volume": volume,
-    "RSI": rsi
-}
+def compute_target(t, v, r):
+    return 0.1 * t + 0.2 * v + 0.3 * r + np.random.normal(0, 1.0)
 
-# Створення правил
-rule1 = FuzzyRule(
-    conditions=[("Volume", "Low"), ("RSI", "High")],
-    consequence=lambda inputs: 0.2 * inputs["Volume"] + 0.5 * inputs["RSI"]
-)
+history_targets = [
+    compute_target(x["Температура"], x["Volume"], x["RSI"])
+    for x in history_inputs
+]
+print("historical inputs",history_inputs)
+print("historical targets", history_targets)
+# Предположим, у вас есть готовые лингвистические переменные
+variables = {"Температура": temperature, "Volume": volume, "RSI": rsi}
 
-rule2 = FuzzyRule(
-    conditions=[("Volume", "High"), ("RSI", "Low")],
-    consequence=lambda inputs: 0.4 * inputs["Volume"] - 0.3 * inputs["RSI"]
-)
+# Создаём обучаемую базу
+hrule_base = HistoricalFuzzyRuleBase(variables)
 
-# Прогнозування
-rule_base = FuzzyRuleBase(variables)
-rule_base.add_rule(rule1)
-rule_base.add_rule(rule2)
+# Добавляем правила (можно вручную или автогенерацией)
+# Предположим, у вас есть 3 переменные:
+variables = [temperature, volume, rsi]  # объекты FuzzyLinguisticVariable
 
-input_data = {
-    "Volume": 30,
-    "RSI": 70
-}
+# Генерируем правила
+rules = generate_all_rules(variables)
 
-print("Forecast:", rule_base.predict(input_data))
+# Добавляем в базу
+hrule_base = HistoricalFuzzyRuleBase({v.get_name(): v for v in variables})
+for rule in rules:
+    hrule_base.add_rule(rule)
+
+# Обучаем
+hrule_base.train(history_inputs, history_targets)
+
+# Прогноз
+print("Forecast:", hrule_base.predict({"Температура": 20, "Volume": 56, "RSI": 40}))
+
+
+# Обучаем
+hrule_base.train(history_inputs, history_targets)
+
+# Прогноз
+new_input = {"Температура": 13, "Volume": 2, "RSI": 3}
+print("Forecast D:", hrule_base.predict(new_input))
