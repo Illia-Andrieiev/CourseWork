@@ -38,6 +38,7 @@ def compute_analytical_gradients(x, y, y_pred, params, function_type):
         return np.array([a_grad, b_grad, c_grad])
     
     elif function_type == 'polynomial':
+        x = np.where(x == 0, 1e-6, x)  
         a, b, c = params
         a_grad = -2 * np.sum(x**b * (y - y_pred)) / n
         b_grad = -2 * np.sum(a * x**b * np.log(x) * (y - y_pred)) / n
