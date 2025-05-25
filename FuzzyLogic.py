@@ -233,11 +233,14 @@ class HistoricalFuzzyRule:
     def evaluate_truth(self, inputs, variables_dict):
         degrees = []
         for var_name, term_name in self._conditions:
+        
             var = variables_dict[var_name]
             x = inputs[var_name]
             degrees.append(var.get_membership(term_name, x))
-            # return np.prod(degrees)       
-        return sum(degrees) / len(degrees)  # soft norm
+        res = np.min(degrees) 
+        #print(self._conditions, degrees, res)
+        return res 
+        #return sum(degrees) / len(degrees)  # soft norm
 
     def evaluate_output(self, inputs):
         """
@@ -259,13 +262,12 @@ class HistoricalFuzzyRule:
 
         for inputs, target in zip(input_data_list, targets):
             g = self.evaluate_truth(inputs, variables_dict)
-            if g > 0:
-                a = 0.7
-                g = g ** a  # ← make softer
-                x_row = [inputs[name] for name, _ in self._conditions] + [1.0]
-                X.append(x_row)
-                y.append(target)
-                weights.append(g)
+            a = 0.7
+            g = g ** a  # ← make softer
+            x_row = [inputs[name] for name, _ in self._conditions] + [1.0]
+            X.append(x_row)
+            y.append(target)
+            weights.append(g)
 
 
         if len(X) == 0:
@@ -300,8 +302,40 @@ class HistoricalFuzzyRuleBase:
         """
         for rule in self._rules:
             rule.fit(input_data_list, targets, self._variables)
-            print(f"Rule {rule._conditions} → coeffs: {rule._coefficients}")
+            #print(f"Rule {rule._conditions} → coeffs: {rule._coefficients}")
+    def prune_and_retrain(self, input_data_list, targets, min_weight_threshold=0.01):
+        print(targets)
+        """
+        1. Trains all rules.
+        2. Removes rules with low average activation (truth degree).
+        3. Retrains remaining rules.
 
+        Args:
+            input_data_list (list): Input values as list of dicts.
+            targets (list): Target values (e.g., Gold).
+            min_weight_threshold (float): Threshold for pruning.
+        """
+        # Step 1: Initial full training
+        self.train(input_data_list, targets)
+
+        # Step 2: Measure average activation weight
+        retained_rules = []
+        for rule in self._rules:
+            total_weight = sum(
+                rule.evaluate_truth(inputs, self._variables)
+                for inputs in input_data_list
+            )
+            avg_weight = total_weight / len(input_data_list)
+            if avg_weight >= min_weight_threshold:
+                retained_rules.append(rule)
+
+        print(f"🧹 Pruning complete: {len(retained_rules)} rules retained out of {len(self._rules)}.")
+
+        # Step 3: Retrain only retained rules
+        self._rules = retained_rules
+        self.train(input_data_list, targets)
+
+        
 
     def predict(self, input_dict):
         """
@@ -309,12 +343,13 @@ class HistoricalFuzzyRuleBase:
         """
         weighted_outputs = []
         weights = []
-
+        print(input_dict)
         for rule in self._rules:
             truth = rule.evaluate_truth(input_dict, self._variables)
             output = rule.evaluate_output(input_dict)
             weights.append(truth)
             weighted_outputs.append(truth * output)
+            print("rule weight: ", truth, " output: ", output)
 
         total_weight = sum(weights)
         if total_weight == 0:
@@ -587,7 +622,7 @@ def generate_all_rules(variables):
 
 
 
-
+"""
 
 # Створення змінної
 temperature = FuzzyLinguisticVariable("Температура", (0, 100))
@@ -678,3 +713,4 @@ hrule_base.train(history_inputs, history_targets)
 # Прогноз
 new_input = {"Температура": 13, "Volume": 2, "RSI": 3}
 print("Forecast D:", hrule_base.predict(new_input))
+"""
