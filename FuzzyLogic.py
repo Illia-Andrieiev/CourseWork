@@ -164,7 +164,7 @@ class FuzzyRule:
             x = inputs[var_name]
             degrees.append(var.get_membership(term_name, x))
             # return np.prod(degrees)       
-            return sum(degrees) / len(degrees)  # soft norm
+        return sum(degrees) / len(degrees)  # soft norm
 
 
     def evaluate_output(self, inputs):
@@ -349,7 +349,6 @@ class HistoricalFuzzyRuleBase:
             output = rule.evaluate_output(input_dict)
             weights.append(truth)
             weighted_outputs.append(truth * output)
-            print("rule weight: ", truth, " output: ", output)
 
         total_weight = sum(weights)
         if total_weight == 0:
@@ -602,17 +601,17 @@ def generate_all_rules(variables):
         list of HistoricalFuzzyRule: all possible combinations.
 
     """
-    # Получаем все имена термов для каждой переменной
+    # Get all term names for each variable
     term_lists = []
     var_names = []
     for var in variables:
         var_names.append(var.get_name())
         term_lists.append(var.get_terms())  # список названий термов
 
-    # Генерируем декартово произведение всех термов
+    # Generate the Cartesian product of all terms
     all_combinations = itertools.product(*term_lists)
 
-    # Формируем правила
+    # Define rules
     rules = []
     for term_combo in all_combinations:
         conditions = list(zip(var_names, term_combo))
@@ -620,97 +619,3 @@ def generate_all_rules(variables):
 
     return rules
 
-
-
-"""
-
-# Створення змінної
-temperature = FuzzyLinguisticVariable("Температура", (0, 100))
-
-# Додавання термів
-temperature.add_term(FuzzyTerm("низька", triangle_function(0, 0, 50)))
-temperature.add_term(FuzzyTerm("середня", triangle_function(25, 50, 75)))
-temperature.add_term(FuzzyTerm("висока", triangle_function(50, 100, 100)))
-#temperature.add_term(FuzzyTerm("t1", sigmoid_function(0.2, 10, True)))
-#temperature.add_term(FuzzyTerm("t2", gaussian_function(2, 30, True)))
-#temperature.add_term(FuzzyTerm("t3", z_shape_function(20, 50, True)))
-
-
-# Отримання значення належності
-x = 45
-#print(f"Належність до 'середня' при {x}: {temperature.get_membership('середня', x)}")
-print(f"Належність до 'низька' при {x}: {temperature.get_membership('низька', x)}")
-#print(f"Належність до 'висока' при {x}: {temperature.get_membership('висока', x)}")
-#plot_linguistic_variable(temperature,3)
-
-
-x_vals = np.array([0, 10, 20, 30, 40, 50])
-membership_vals = np.array([0.1, 0.4, 0.8, 1.0, 0.8, 0.2])
-
-# Example usage
-print(defuzzify(x_vals, membership_vals, method="centroid"))  # Center of Gravity
-print(defuzzify(x_vals, membership_vals, method="mom"))       # Mean of Maximum
-print(defuzzify(x_vals, membership_vals, method="max"))       # Maximum Membership
-print(defuzzify(x_vals, membership_vals, method="weighted_avg"))  # Weighted Average
-
-
-
-
-
-# Створення змінних
-volume = FuzzyLinguisticVariable("Volume", (0, 100))
-volume.add_term(FuzzyTerm("Low", triangle_function(0, 0, 50)))
-volume.add_term(FuzzyTerm("High", triangle_function(50, 100, 100)))
-
-rsi = FuzzyLinguisticVariable("RSI", (0, 100))
-rsi.add_term(FuzzyTerm("Low", triangle_function(0, 0, 50)))
-rsi.add_term(FuzzyTerm("High", triangle_function(50, 100, 100)))
-# Исторические входы и значения D
-history_inputs = [
-    {"Температура": t, "Volume": v, "RSI": r}
-    for t in [20, 40, 60, 80]
-    for v in [10, 50, 90]
-    for r in [10, 50, 90]
-]
-
-def compute_target(t, v, r):
-    return 0.1 * t + 0.2 * v + 0.3 * r + np.random.normal(0, 1.0)
-
-history_targets = [
-    compute_target(x["Температура"], x["Volume"], x["RSI"])
-    for x in history_inputs
-]
-print("historical inputs",history_inputs)
-print("historical targets", history_targets)
-# Предположим, у вас есть готовые лингвистические переменные
-variables = {"Температура": temperature, "Volume": volume, "RSI": rsi}
-
-# Создаём обучаемую базу
-hrule_base = HistoricalFuzzyRuleBase(variables)
-
-# Добавляем правила (можно вручную или автогенерацией)
-# Предположим, у вас есть 3 переменные:
-variables = [temperature, volume, rsi]  # объекты FuzzyLinguisticVariable
-
-# Генерируем правила
-rules = generate_all_rules(variables)
-
-# Добавляем в базу
-hrule_base = HistoricalFuzzyRuleBase({v.get_name(): v for v in variables})
-for rule in rules:
-    hrule_base.add_rule(rule)
-
-# Обучаем
-hrule_base.train(history_inputs, history_targets)
-
-# Прогноз
-print("Forecast:", hrule_base.predict({"Температура": 20, "Volume": 56, "RSI": 40}))
-
-
-# Обучаем
-hrule_base.train(history_inputs, history_targets)
-
-# Прогноз
-new_input = {"Температура": 13, "Volume": 2, "RSI": 3}
-print("Forecast D:", hrule_base.predict(new_input))
-"""

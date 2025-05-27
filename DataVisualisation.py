@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import matplotlib.dates as mdates
 
 class DataVisualisation:
     def plot_dataframe(self, df, x_col, main_y_col, else_y_cols=None, title='plot', x_label='X', y_label='Y', is_use_locator = False, xaxis_major_locator=365*5, yaxis_major_locator=250):
